@@ -102,7 +102,7 @@ class Person:
             # Check if person is not too old (reasonable limit: 150 years)
             age = (datetime.now() - date_obj).days / 365.25
             if age > 150:
-                raise ValueError("Data de nascimento inválida (pessoa muito velha)")
+                raise ValueError("Data de nascimento inválida")
             
             return birth_date
         except ValueError as e:
