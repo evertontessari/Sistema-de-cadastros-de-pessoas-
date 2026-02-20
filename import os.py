@@ -541,11 +541,92 @@ def launch_gui():
             anchor="e", padx=10, pady=10
         )
 
+    def clonar_registro():
+        sel = tree.selection()
+        if not sel:
+            messagebox.showwarning("Atenção", "Selecione um registro para clonar.")
+            return
+
+        columns = list(tree["columns"])
+        values = tree.item(sel[0], "values")
+        col_map = {col: i for i, col in enumerate(columns)}
+        cod = values[col_map["CODPESSOA"]] if "CODPESSOA" in col_map else ""
+
+        top = tk.Toplevel(root)
+        top.title(f"Clonar registro - {cod}")
+        top.geometry("500x380")
+        top.grab_set()
+        top.columnconfigure(1, weight=1)
+
+        campos_clonar = [
+            ("NOME", "Nome"),
+            ("NOMEFANTASIA", "Nome fantasia"),
+            ("EMAIL", "E-mail"),
+            ("FONE1", "Fone"),
+            ("ID_ROYALTIES", "Royalties (ID)"),
+        ]
+
+        clone_vars = {}
+        for i, (campo, label) in enumerate(campos_clonar):
+            ttk.Label(top, text=label).grid(row=i, column=0, padx=8, pady=4, sticky="w")
+            var = tk.StringVar()
+            if campo in col_map:
+                valor = values[col_map[campo]]
+                var.set(valor if valor is not None else "")
+            clone_vars[campo] = var
+            ttk.Entry(top, textvariable=var, width=40).grid(row=i, column=1, padx=8, pady=4, sticky="ew")
+
+        ttk.Label(
+            top,
+            text="⚠️ CPF e CNPJ não serão copiados (devem ser únicos).",
+            foreground="orange",
+        ).grid(row=len(campos_clonar), column=0, columnspan=2, padx=8, pady=6)
+
+        def confirmar_clone():
+            try:
+                con = get_connection(
+                    entries["Host"].get().strip(),
+                    entries["Porta"].get().strip(),
+                    entries["Usuário"].get().strip(),
+                    entries["Senha"].get(),
+                    entries["Database"].get().strip(),
+                )
+                try:
+                    cur = con.cursor()
+                    campos_insert = [c for c, _ in campos_clonar]
+                    vals = []
+                    for c in campos_insert:
+                        v = clone_vars[c].get().strip()
+                        vals.append(v if v else None)
+                    placeholders = ", ".join(["?" for _ in campos_insert])
+                    campos_str = ", ".join(campos_insert)
+                    cur.execute(
+                        f"INSERT INTO PESSOA ({campos_str}) VALUES ({placeholders})",
+                        tuple(vals),
+                    )
+                    con.commit()
+                finally:
+                    con.close()
+                on_load()
+                status_var.set("Registro clonado com sucesso.")
+                top.destroy()
+            except Exception as e:
+                messagebox.showerror("Erro", f"Falha ao clonar registro: {e}")
+                status_var.set(f"Falha ao clonar registro: {e}")
+
+        btn_frame = ttk.Frame(top)
+        btn_frame.grid(row=len(campos_clonar) + 1, column=0, columnspan=2, pady=8)
+        ttk.Button(btn_frame, text="✅ Confirmar clone", command=confirmar_clone).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="Cancelar", command=top.destroy).pack(side="left", padx=4)
+
     ttk.Button(edit_frame, text="Atualizar registro", command=atualizar_individual).grid(
         row=2, column=0, columnspan=4, pady=6
     )
     ttk.Button(edit_frame, text="Configurações do cadastro", command=abrir_configuracoes).grid(
         row=3, column=0, columnspan=4, pady=4
+    )
+    ttk.Button(edit_frame, text="🔁 Clonar registro", command=clonar_registro).grid(
+        row=5, column=0, columnspan=4, pady=4
     )
 
     def _buscar_cgc_por_cod(cod):
